@@ -1,0 +1,8 @@
+*.o
+*.out
+watchdog
+worker
+*.log
+.vscode/
+.idea/
+*.swp
