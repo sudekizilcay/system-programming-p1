@@ -35,7 +35,7 @@ int process_manager_start_all(void);
 
 void process_manager_handle_children(void);
 
-void process_manager_periodic_chech(void);
+void process_manager_periodic_check(void);
 
 void process_manager_shutdown_all(void);
 
