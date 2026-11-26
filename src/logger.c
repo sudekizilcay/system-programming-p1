@@ -39,13 +39,13 @@ static int format_timestamp(char *buf, size_t size)
     return 0;
 }
 
-static void write_log_line(const char *level, const char *fmt, ...)
+static void write_log_line(const char *level, const char *fmt, va_list args)
 {
     char ts_buf[64];
     char msg_buf[512];
-    va_list args;
+    va_list copy;
 
-    if (!log_fp) {
+    if (!log_fp || !fmt) {
         return;
     }
 
@@ -53,12 +53,21 @@ static void write_log_line(const char *level, const char *fmt, ...)
         snprintf(ts_buf, sizeof(ts_buf), "0000-00-00 00:00:00.000");
     }
 
-    va_start(args, fmt);
-    vsnprintf(msg_buf, sizeof(msg_buf), fmt, args);
-    va_end(args);
+    va_copy(copy, args);
+    vsnprintf(msg_buf, sizeof(msg_buf), fmt, copy);
+    va_end(copy);
 
     fprintf(log_fp, "[%s] [%s] %s\n", ts_buf, level ? level : "INFO", msg_buf);
     fflush(log_fp);
+}
+
+static void write_log_line_fmt(const char *level, const char *fmt, ...)
+{
+    va_list args;
+
+    va_start(args, fmt);
+    write_log_line(level, fmt, args);
+    va_end(args);
 }
 
 int logger_init(const char *log_path)
@@ -77,7 +86,7 @@ int logger_init(const char *log_path)
     }
 
     setvbuf(log_fp, NULL, _IOLBF, 0);
-    write_log_line("EVENT", "WATCHDOG_INIT log_file=%s pid=%d", path, (int)getpid());
+    write_log_line_fmt("EVENT", "WATCHDOG_INIT log_file=%s pid=%d", path, (int)getpid());
     return 0;
 }
 
@@ -87,23 +96,23 @@ void logger_close(void)
         return;
     }
 
-    write_log_line("EVENT", "WATCHDOG_CLOSE pid=%d", (int)getpid());
+    write_log_line_fmt("EVENT", "WATCHDOG_CLOSE pid=%d", (int)getpid());
     fflush(log_fp);
     fclose(log_fp);
     log_fp = NULL;
 }
 
-void logger_log_event(const char *event, const char *detail)
+void logger_log_event(const char *fmt, ...)
 {
-    if (!log_fp) {
+    va_list args;
+
+    if (!log_fp || !fmt) {
         return;
     }
 
-    if (detail && detail[0] != '\0') {
-        write_log_line("EVENT", "%s | %s", event ? event : "UNKNOWN", detail);
-    } else {
-        write_log_line("EVENT", "%s", event ? event : "UNKNOWN");
-    }
+    va_start(args, fmt);
+    write_log_line("EVENT", fmt, args);
+    va_end(args);
 }
 
 void logger_log_child_event(const char *event, const child_info_t *child, int status_or_sig)
@@ -113,11 +122,12 @@ void logger_log_child_event(const char *event, const child_info_t *child, int st
     }
 
     if (!child) {
-        write_log_line("CHILD", "%s | info=NULL code=%d", event ? event : "CHILD_EVENT", status_or_sig);
+        write_log_line_fmt("CHILD", "%s | info=NULL code=%d",
+                           event ? event : "CHILD_EVENT", status_or_sig);
         return;
     }
 
-    write_log_line(
+    write_log_line_fmt(
         "CHILD",
         "%s | name=%s pid=%d state=%s restarts=%d/%d code=%d",
         event ? event : "CHILD_EVENT",
@@ -139,11 +149,11 @@ void logger_report_status(const child_info_t *children, int count)
         return;
     }
 
-    write_log_line("STATUS", "SIGUSR1_REPORT begin total_entries=%d", count);
+    write_log_line_fmt("STATUS", "SIGUSR1_REPORT begin total_entries=%d", count);
 
     if (!children || count <= 0) {
-        write_log_line("STATUS", "SIGUSR1_REPORT no child records");
-        write_log_line("STATUS", "SIGUSR1_REPORT end reported=0");
+        write_log_line_fmt("STATUS", "SIGUSR1_REPORT no child records");
+        write_log_line_fmt("STATUS", "SIGUSR1_REPORT end reported=0");
         return;
     }
 
@@ -153,7 +163,7 @@ void logger_report_status(const child_info_t *children, int count)
         }
 
         if (children[i].state == CS_RUNNING) {
-            write_log_line(
+            write_log_line_fmt(
                 "STATUS",
                 "child[%d] name=%s pid=%d state=%s restarts=%d/%d",
                 i,
@@ -165,7 +175,7 @@ void logger_report_status(const child_info_t *children, int count)
             );
             reported++;
         } else {
-            write_log_line(
+            write_log_line_fmt(
                 "STATUS_OTHER",
                 "child[%d] name=%s pid=%d state=%s restarts=%d/%d",
                 i,
@@ -178,5 +188,5 @@ void logger_report_status(const child_info_t *children, int count)
         }
     }
 
-    write_log_line("STATUS", "SIGUSR1_REPORT end running_reported=%d", reported);
+    write_log_line_fmt("STATUS", "SIGUSR1_REPORT end running_reported=%d", reported);
 }
