@@ -123,8 +123,6 @@ else
     ok "S7: no leftover worker processes"
 fi
 WD_PID=""
-
 echo
 echo "=== Result: $PASS passed, $FAIL failed ==="
 [ "$FAIL" -eq 0 ]
-```[cite: 3]

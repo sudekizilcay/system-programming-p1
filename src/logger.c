@@ -115,31 +115,6 @@ void logger_log_event(const char *fmt, ...)
     va_end(args);
 }
 
-void logger_log_child_event(const char *event, const child_info_t *child, int status_or_sig)
-{
-    if (!log_fp) {
-        return;
-    }
-
-    if (!child) {
-        write_log_line_fmt("CHILD", "%s | info=NULL code=%d",
-                           event ? event : "CHILD_EVENT", status_or_sig);
-        return;
-    }
-
-    write_log_line_fmt(
-        "CHILD",
-        "%s | name=%s pid=%d state=%s restarts=%d/%d code=%d",
-        event ? event : "CHILD_EVENT",
-        child->name[0] ? child->name : "worker",
-        (int)child->pid,
-        process_manager_state_name(child->state),
-        child->restart_count,
-        MAX_RESTARTS,
-        status_or_sig
-    );
-}
-
 void logger_report_status(const child_info_t *children, int count)
 {
     int i;
